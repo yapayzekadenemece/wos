@@ -3,7 +3,7 @@ services:
     name: atilim-api
     env: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn atilim_api:app"
+    startCommand: "gunicorn -w 1 -b 0.0.0.0:$PORT atilim_api:app"
     plan: free
     envVars:
       - key: PYTHON_VERSION
