@@ -54,3 +54,15 @@ if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     logging.info(f"Flask uygulaması {port} portunda başlatılıyor...")
     app.run(host="0.0.0.0", port=port)
+
+    from flask import send_file
+
+
+    @app.route("/openapi.yaml")
+    def serve_openapi_spec():
+        return send_file("openapi.yaml", mimetype="application/yaml")
+
+
+    @app.route("/.well-known/ai-plugin.json")
+    def serve_plugin_manifest():
+        return send_file(".well-known/ai-plugin.json", mimetype="application/json")

@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Atılım Yayın API",
+  "name_for_model": "atilim_yayin_api",
+  "description_for_human": "Atılım Üniversitesi yayın verilerini getirir.",
+  "description_for_model": "Get publications from Atilim University via Web of Science Starter API.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://atilim-api.onrender.com/openapi.yaml"
+  },
+  "logo_url": "https://atilim.edu.tr/images/logo.png",
+  "contact_email": "ece.helvacioglu@yasar.edu.tr",
+  "legal_info_url": "https://atilim.edu.tr"
+}

@@ -1,0 +1,42 @@
+openapi: 3.1.0
+info:
+  title: Atilim University Yayın API
+  version: 1.0.0
+  description: Atilim University yayın verilerini Web of Science Starter API üzerinden çeken arayüz.
+
+servers:
+  - url: https://atilim-api.onrender.com
+
+paths:
+  /atilim:
+    get:
+      summary: Atilim University yayınlarını getir
+      operationId: getAtilimPublications
+      description: Asenkron olarak tüm yayın verilerini döner
+      responses:
+        "200":
+          description: Başarılı yanıt
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    uid:
+                      type: string
+                    title:
+                      type: string
+                    source:
+                      type: object
+                      properties:
+                        sourceTitle:
+                          type: string
+                        publishYear:
+                          type: string
+                    Author Name and Surname:
+                      type: string
+                    Citation Count:
+                      type: integer
+        "500":
+          description: Sunucu hatası
