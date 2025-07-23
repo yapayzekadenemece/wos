@@ -1,3 +1,4 @@
+import os  # Ortam değişkeni için eklendi
 import httpx
 import asyncio
 import math
@@ -7,15 +8,13 @@ import time  # Üstel geri çekilme (exponential backoff) için eklendi
 
 # API bilgileri
 BASE_URL = "https://api.clarivate.com/apis/wos-starter/v1/documents"
-API_KEY = "2911c678b48cde2e576cc471cac3d27759f5328d"
+API_KEY = os.environ.get("CLARIVATE_API_KEY")  # Artık API anahtarı ortam değişkeninden alınacak
 HEADERS = {"X-ApiKey": API_KEY}
 QUERY_PARAMS = {
     "db": "WOS",
     "q": 'OG="Atilim University" AND FPY=1900-2030',
     "limit": 50
 }
-
-
 async def fetch_page(client, page, total_pages, max_retries=5, base_delay=1):
     """
     Belirli bir sayfayı asenkron olarak çeker ve hız sınırlaması için yeniden deneme yapar.

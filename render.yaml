@@ -8,3 +8,7 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11
+
+envVars:
+  - key: CLARIVATE_API_KEY
+    value: 2911c678b48cde2e576cc471cac3d27759f5328d
