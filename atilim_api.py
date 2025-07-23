@@ -1,37 +1,56 @@
 from flask import Flask, jsonify
 import asyncio
-from Atilim import main as fetch_Atilim_data  # Atilim.py dosyan
+import os
+import pandas as pd # pandas'ı içe aktardığınızdan emin olun
+from Atilim import main as fetch_Atilim_data # Atilim.py dosyan
+import logging # Loglama için eklendi
+
+# Temel loglama yapılandırması
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
 
+# Global bir değişken, çekilen veriyi saklamak için
+cached_data_df = None
+
+async def load_initial_data():
+    """Uygulama başladığında veriyi yüklemek için asenkron fonksiyon."""
+    global cached_data_df
+    logging.info("📦 Veri yükleme başlatılıyor...")
+    try:
+        # Atilim.py'deki main fonksiyonunu çağır
+        df = await fetch_Atilim_data()
+        if df is not None and not df.empty:
+            cached_data_df = df
+            logging.info("✅ Veriler başarıyla yüklendi ve önbelleğe alındı.")
+        else:
+            logging.warning("⚠️ İlk veri yüklemesi boş bir DataFrame ile sonuçlandı.")
+            cached_data_df = pd.DataFrame() # Boşsa bile bir DataFrame nesnesi olsun
+    except ValueError as ve: # Özellikle API anahtarı hatasını yakala
+        logging.error(f"❌ Yapılandırma hatası: {ve}", exc_info=True)
+        cached_data_df = pd.DataFrame() # Hata durumunda boş DataFrame döndür
+    except Exception as e:
+        logging.error(f"❌ İlk veri yüklenirken beklenmedik bir hata oluştu: {e}", exc_info=True)
+        cached_data_df = pd.DataFrame() # Hata durumunda boş DataFrame döndür
 
 @app.route('/atilim')
 def get_atilim():
-    try:
-        df = asyncio.run(fetch_Atilim_data())
-
-        # 📭 Eğer veri çekilemediyse veya boşsa kullanıcıya bilgi ver
-        if df is None or df.empty:
-            return jsonify({"message": "Veri çerçevesi boş veya çekilemedi."})
-
-        # 🧠 Eğer 'Author Display Name' sütunu eksikse, names.authors üzerinden oluştur
-        if 'Author Display Name' not in df.columns and 'names.authors' in df.columns:
-            df['Author Display Name'] = df['names.authors'].apply(
-                lambda authors: ', '.join(
-                    a.get('displayName', '') for a in authors
-                    if isinstance(a, dict) and 'displayName' in a
-                ) if isinstance(authors, list) else None
-            )
-
-        # 🏷 'Author Name and Surname' oluşturuluyor (varsa 'Author Display Name' kullan)
-        if 'Author Display Name' in df.columns:
-            df['Author Name and Surname'] = df['Author Display Name']
+    # Eğer veri henüz yüklenmediyse veya boşsa, kullanıcıya bilgi ver
+    if cached_data_df is None or cached_data_df.empty:
+        # Veri yükleme hatası veya eksik yapılandırma nedeniyle servis kullanılamazsa 503
+        if "CLARIVATE_API_KEY" not in os.environ:
+             return jsonify({"message": "API yapılandırma hatası: CLARIVATE_API_KEY ortam değişkeni ayarlanmadı."}), 500
         else:
-            df['Author Name and Surname'] = None
+            return jsonify({"message": "Veri henüz yüklenmedi veya yüklenemedi. Lütfen daha sonra tekrar deneyin."}), 503
 
-        # JSON olarak döndür
-        return jsonify(df.to_dict(orient="records"))
+    # Doğrudan önbelleğe alınmış veriyi döndür
+    return jsonify(cached_data_df.to_dict(orient="records"))
 
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+if __name__ == '__main__':
+    # Uygulama başlamadan önce veriyi yükle
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(load_initial_data())
 
+    port = int(os.environ.get("PORT", 5000))
+    logging.info(f"Flask uygulaması {port} portunda başlatılıyor...")
+    app.run(host="0.0.0.0", port=port)
