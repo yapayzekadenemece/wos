@@ -1,4 +1,3 @@
-#ATILLIM UNİ HIZLI APİ ÇEKME
 import httpx
 import asyncio
 import math
@@ -29,7 +28,7 @@ async def fetch_page(client, page, total_pages, max_retries=5, base_delay=1):
             return resp.json().get("hits", [])
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
-                delay = min(base_delay * (2 ** attempt), 120)  # Maksimum 120 saniye beklesin
+                delay = min(base_delay * (2 ** attempt), 60)  # Maksimum 60 saniye beklesin
                 print(f"🚫 Hata! Sayfa {page} için API limitine ulaşıldı (429). {delay:.2f} saniye bekleniyor...")
                 await asyncio.sleep(delay)
                 continue  # İsteği yeniden dene
@@ -68,11 +67,18 @@ async def main():
         # Tüm sayfalar için görevleri oluştur
         pages_to_fetch = list(range(1, total_pages + 1))
 
-        # İlerleme çubuğu ile eş zamanlı yürütme için tqdm ile asyncio.gather kullan
+        from tqdm import tqdm
+
         tasks = [fetch_page(client, page, total_pages, max_retries=100) for page in pages_to_fetch]
 
-        # tqdm.asyncio.tqdm kullanarak doğru bir asenkron ilerleme çubuğu göster
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = []
+        for coro in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Sayfalar çekiliyor"):
+            try:
+                result = await coro
+                if result:
+                    results.append(result)
+            except Exception as e:
+                print(f"❌ Hata oluştu: {e}")
 
         for page_data in results:
             if page_data:
@@ -100,18 +106,35 @@ async def main():
         if col in df.columns:  # Sütunun var olup olmadığını kontrol et
             df[col] = df[col].apply(extract_first_list_item)
 
-    # Yazarları metin olarak birleştir
+    # Yazarları metin olarak birleştir ve gerekli sütunları oluştur
     if 'names.authors' in df.columns:
         df['Author Researcher ID'] = df['names.authors'].apply(
             lambda authors: ', '.join(
-                a.get('researcherId', '') for a in authors if isinstance(a, dict) and 'researcherId' in a
+                a.get('researcherId', '')
+                for a in authors if isinstance(a, dict) and 'researcherId' in a
             ) if isinstance(authors, list) else None
         )
+        # 'displayName' alanı varsa 'Author Display Name' olarak kullan
+        df['Author Display Name'] = df['names.authors'].apply(
+            lambda authors: ', '.join(
+                a.get('displayName', '')
+                for a in authors if isinstance(a, dict) and 'displayName' in a
+            ) if isinstance(authors, list) else None
+        )
+        # 'wosStd' alanı varsa 'Author WoS Standard' olarak kullan
+        df['Author WoS Standard'] = df['names.authors'].apply(
+            lambda authors: ', '.join(
+                a.get('wosStd', '')
+                for a in authors if isinstance(a, dict) and 'wosStd' in a
+            ) if isinstance(authors, list) else None
+        )
+        # Author Name and Surname için en uygun olanı kullan (örn. displayName)
         df['Author Name and Surname'] = df['Author Display Name']
     else:
+        # Eğer names.authors sütunu yoksa, ilgili sütunları None olarak ayarla
+        df['Author Researcher ID'] = None
         df['Author Display Name'] = None
         df['Author WoS Standard'] = None
-        df['Author Researcher ID'] = None
         df['Author Name and Surname'] = None
 
     # Atıf detaylarını çıkar
