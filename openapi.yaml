@@ -1,42 +1,132 @@
 openapi: 3.1.0
 info:
-  title: Atilim University Yayın API
+  title: Üniversite Yayınları API
   version: 1.0.0
-  description: Atilim University yayın verilerini Web of Science Starter API üzerinden çeken arayüz.
-
+  description: Türkiye'deki belirli üniversitelerin Web of Science yayın verilerini filtreler, listeler ve özetler.
 servers:
-  - url: https://atilim-api.onrender.com
-
+  - url: https://atilim-api.onrender.com # Burayı KENDİ RENDER API URL'NİZLE DEĞİŞTİRİN!
 paths:
-  /atilim:
+  /universities:
     get:
-      summary: Atilim University yayınlarını getir
-      operationId: getAtilimPublications
-      description: Asenkron olarak tüm yayın verilerini döner
+      operationId: getSupportedUniversities
+      summary: Desteklenen üniversitelerin listesini döndürür. Kullanıcıya hangi üniversitelerin sorgulanabileceğini belirtmek için kullanışlıdır.
       responses:
-        "200":
-          description: Başarılı yanıt
+        '200':
+          description: Desteklenen üniversitelerin listesi.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  universities:
+                    type: array
+                    items:
+                      type: string
+  /publications:
+    get:
+      operationId: getPublications
+      summary: Belirli bir üniversitenin yayınlarını filtreleyerek veya sınırlayarak getirir. Büyük veri setleri için filtreleme parametreleri kullanmak önemlidir.
+      parameters:
+        - name: university
+          in: query
+          schema:
+            type: string
+            enum: # Desteklenen üniversiteler listesini buraya ekleyerek Custom GPT'ye ipucu verin
+              - Reichman University
+              - Sabanci University
+              - TOBB Ekonomi ve Teknoloji University
+              - University of Navarra
+              - Universitat Internacional de Catalunya (UIC)
+              - Ozyegin University
+              - Kadir Has University
+              - Izmir Ekonomi Universitesi
+              - Jacobs University
+              - Ihsan Dogramaci Bilkent University
+              - Bahcesehir University
+          description: Yayınları çekilecek üniversitenin tam adı. Zorunludur.
+          required: true
+        - name: year
+          in: query
+          schema:
+            type: integer
+          description: Yayınları belirli bir yıla göre filtrele.
+        - name: author
+          in: query
+          schema:
+            type: string
+          description: Yayınları belirli bir yazar adına göre filtrele (kısmi eşleşme).
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+          description: Döndürülecek yayın sayısını sınırla. Varsayılan 50'dir, maksimum 100 yayın alınabilir.
+      responses:
+        '200':
+          description: Filtrelenmiş yayınların listesi.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    uid:
-                      type: string
-                    title:
-                      type: string
-                    source:
-                      type: object
-                      properties:
-                        sourceTitle:
-                          type: string
-                        publishYear:
-                          type: string
-                    Author Name and Surname:
-                      type: string
-                    Citation Count:
-                      type: integer
-        "500":
+                  type: object # Her yayın bir nesne
+        '400':
+          description: Geçersiz veya eksik parametre
+        '500':
           description: Sunucu hatası
+        '503':
+          description: Veri henüz yüklenmedi veya yüklenemedi.
+  /publications/summary:
+    get:
+      operationId: getPublicationsSummary
+      summary: Belirli bir üniversitenin yayınları hakkında özet istatistikler (toplam yayın, yıla göre dağılım, en çok yayın yapan yazarlar, anahtar kelimeler, ortalama atıf sayısı) döndürür. Bu endpoint, genel yorumlama için idealdir.
+      parameters:
+        - name: university
+          in: query
+          schema:
+            type: string
+            enum: # Desteklenen üniversiteler listesini buraya da ekleyin
+              - Reichman University
+              - Sabanci University
+              - TOBB Ekonomi ve Teknoloji University
+              - University of Navarra
+              - Universitat Internacional de Catalunya (UIC)
+              - Ozyegin University
+              - Kadir Has University
+              - Izmir Ekonomi Universitesi
+              - Jacobs University
+              - Ihsan Dogramaci Bilkent University
+              - Bahcesehir University
+          description: Özetini çekilecek üniversitenin tam adı. Zorunludur.
+          required: true
+      responses:
+        '200':
+          description: Üniversite yayınlarının özet istatistikleri.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  university:
+                    type: string
+                  total_publications:
+                    type: integer
+                  publications_by_year:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  top_5_authors:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  top_5_keywords:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  average_citations:
+                    type: number
+        '400':
+          description: Geçersiz veya eksik parametre
+        '503':
+          description: Veri henüz yüklenmedi veya yüklenemedi.

@@ -1,17 +1,17 @@
 {
   "schema_version": "v1",
-  "name_for_human": "Atılım Yayın API",
-  "name_for_model": "atilim_yayin_api",
-  "description_for_human": "Atılım Üniversitesi yayın verilerini getirir.",
-  "description_for_model": "Get publications from Atilim University via Web of Science Starter API.",
+  "name_for_human": "Üniversite Yayın Analizi",
+  "name_for_model": "universiteYayinAnalizi",
+  "description_for_model": "Belirtilen Türk ve Uluslararası üniversitelerin Web of Science yayın verilerini analiz eder, özetler ve trendleri yorumlar. Kullanıcıdan belirli bir üniversite adı veya filtreleme kriterleri (yıl, yazar, yayın sayısı limiti) isteyebilir. Asla tüm yayınları tek seferde çekmeye çalışmaz, özet endpoint'lerini tercih eder ve gerektiğinde filtrelemeyi kullanır.",
   "auth": {
     "type": "none"
   },
   "api": {
     "type": "openapi",
-    "url": "https://atilim-api.onrender.com/openapi.yaml"
+    "url": "https://atilim-api.onrender.com/openapi.yaml", # Burayı KENDİ RENDER API URL'NİZLE DEĞİŞTİRİN!
+    "is_user_authenticated": false
   },
-  "logo_url": "https://atilim.edu.tr/images/logo.png",
-  "contact_email": "ece.helvacioglu@yasar.edu.tr",
-  "legal_info_url": "https://atilim.edu.tr"
+  "logo_url": "https://www.atilim.edu.tr/assets/img/logo-atilim-universitesi-tr.svg", # İsteğe bağlı, kendi logonuzu koyabilirsiniz
+  "contact_email": "sizin_eposta@example.com", # Kendi e-posta adresiniz
+  "legal_info_url": "https://www.atilim.edu.tr/tr/kvkk-ve-gizlilik" # İsteğe bağlı, gizlilik politikası vs.
 }
