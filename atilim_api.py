@@ -1,17 +1,17 @@
-from flask import Flask, jsonify, send_file, request
+from flask import Flask, jsonify, request
 import asyncio
 import os
-import pandas as pd
-import logging
-from Atilim import main as fetch_university_data
+import json # Eğer Atilim.py'den veri çekiyorsanız veya JSON kaydediyorsanız
+import httpx # Clarivate API çağrıları için
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Eğer Atilim.py dosyanızdaki Clarivate çekme mantığını modül olarak kullanıyorsanız:
+# from Atilim import get_university_publications_from_clarivate 
 
 app = Flask(__name__)
 
-cached_data_by_university = {}
-
-# Yeni üniversite listeniz
+# GLOBAL DEĞİŞKENLER VE ÖNBELLEK
+UNIVERSITY_PUBLICATIONS = {}
+UNIVERSITY_SUMMARIES = {}
 SUPPORTED_UNIVERSITIES = [
     "Reichman University",
     "Sabanci University",
@@ -26,141 +26,140 @@ SUPPORTED_UNIVERSITIES = [
     "Bahcesehir University"
 ]
 
+CLARIVATE_API_KEY = os.getenv("CLARIVATE_API_KEY", "YOUR_DEFAULT_API_KEY")
+CLARIVATE_SID = os.getenv("CLARIVATE_SID", "YOUR_DEFAULT_SID")
 
-@app.route("/openapi.yaml")
-def serve_openapi_spec():
-    # Bu dosyanın içeriği, aşağıdaki güncellenmiş YAML'den gelmeli.
-    return send_file("openapi.yaml", mimetype="application/yaml")
+# Clarivate'tan veri çekme fonksiyonu (Bu, Atilim.py'den import edilen veya buraya kopyalanan fonk olmalı)
+# Eğer Atilim.py'yi import ediyorsanız, bu fonksiyon tanımını buradan kaldırın ve import ettiğiniz fonksiyonu kullanın.
+async def get_university_publications_from_clarivate(university_name, api_key, sid):
+    print(f"Clarivate API'den '{university_name}' için yayın verileri çekiliyor...")
+    # Lütfen buraya kendi Clarivate API çekme mantığınızı KESİNLİKLE koyun.
+    # Bu sadece bir yer tutucudur. Örnek:
+    # response = await httpx.AsyncClient().post(...)
+    # return response.json()['results']
 
-
-@app.route("/.well-known/ai-plugin.json")
-def serve_plugin_manifest():
-    # Bu dosyanın içeriği, aşağıdaki güncellenmiş JSON'dan gelmeli.
-    return send_file(".well-known/ai-plugin.json", mimetype="application/json")
-
-
-@app.route('/universities')
-def get_universities():
-    return jsonify({"universities": SUPPORTED_UNIVERSITIES})
-
-
-@app.route('/publications')
-def get_publications():
-    university_name = request.args.get('university')
-    year = request.args.get('year', type=int)
-    author_name = request.args.get('author')
-    limit = request.args.get('limit', type=int, default=50)
-
-    if not university_name:
-        return jsonify({"message": "Lütfen 'university' parametresini belirtin."}), 400
-
-    if university_name not in SUPPORTED_UNIVERSITIES:
-        return jsonify({
-                           "message": f"'{university_name}' desteklenen bir üniversite değildir. Desteklenen üniversiteler için /universities adresini kontrol edin."}), 400
-
-    df = cached_data_by_university.get(university_name)
-
-    if df is None or df.empty:
-        if "CLARIVATE_API_KEY" not in os.environ:
-            return jsonify({"message": "API yapılandırma hatası: CLARIVATE_API_KEY ortam değişkeni ayarlanmadı."}), 500
-        else:
-            return jsonify({
-                               "message": f"'{university_name}' için veri henüz yüklenmedi veya yüklenemedi. Lütfen daha sonra tekrar deneyin."}), 503
-
-    filtered_df = df.copy()
-
-    if year:
-        filtered_df = filtered_df[filtered_df['Yayın Yılı'] == year]
-
-    if author_name:
-        filtered_df = filtered_df[
-            (filtered_df['Author Name and Surname'].astype(str).str.contains(author_name, case=False, na=False)) |
-            (filtered_df['Author Display Name'].astype(str).str.contains(author_name, case=False, na=False))
-            ]
-
-    if limit and limit > 0:
-        filtered_df = filtered_df.head(limit)
-
-    if filtered_df.empty:
-        return jsonify({"message": f"'{university_name}' için belirtilen kriterlere göre yayın bulunamadı."}), 200
-
-    response_columns = [
-        'Başlık', 'Yayın Yılı', 'Author Name and Surname', 'Kaynak Başlığı',
-        'Citation Count', 'DOI', 'Yazar Anahtar Kelimeleri', 'Üniversite Adı'
+    # Geçici dummy veri döndürelim, böylece API çalışıyor mu test edebiliriz
+    await asyncio.sleep(0.5) # Gerçek API çağrısı gibi gecikme
+    return [
+        {"uid": f"WOS:{university_name}_A1", "title": f"Başlık A {university_name}", "source": {"sourceTitle": "Dergi X", "publishYear": "2023"}, "Author Name and Surname": "Yazar 1", "Citation Count": 15},
+        {"uid": f"WOS:{university_name}_B2", "title": f"Başlık B {university_name}", "source": {"sourceTitle": "Dergi Y", "publishYear": "2022"}, "Author Name and Surname": "Yazar 2", "Citation Count": 8}
     ]
-    response_columns = [col for col in response_columns if col in filtered_df.columns]
 
-    return jsonify(filtered_df[response_columns].to_dict(orient="records"))
+# Özet oluşturma fonksiyonu (önceki yanıtımdaki gibi)
+def generate_summary(publications, university_name):
+    # ... (buraya önceki yanıttaki generate_summary fonksiyonunuzun tüm içeriğini yapıştırın)
+    total_publications = len(publications)
+    publications_by_year = {}
+    author_counts = {}
+    total_citations = 0
 
+    for pub in publications:
+        year = pub.get("source", {}).get("publishYear")
+        if year:
+            publications_by_year[year] = publications_by_year.get(year, 0) + 1
 
-@app.route('/publications/summary')
-def get_publications_summary():
-    university_name = request.args.get('university')
+        author = pub.get("Author Name and Surname")
+        if author:
+            # Birden fazla yazar varsa virgülle ayrılmış olabilir, ilkini alalım
+            main_author = author.split(',')[0].strip()
+            author_counts[main_author] = author_counts.get(main_author, 0) + 1
 
-    if not university_name:
-        return jsonify({"message": "Lütfen 'university' parametresini belirtin."}), 400
-    if university_name not in SUPPORTED_UNIVERSITIES:
-        return jsonify({
-                           "message": f"'{university_name}' desteklenen bir üniversite değildir. Desteklenen üniversiteler için /universities adresini kontrol edin."}), 400
+        citation_count = pub.get("Citation Count", 0)
+        total_citations += citation_count
 
-    df = cached_data_by_university.get(university_name)
+    top_5_authors = dict(sorted(author_counts.items(), key=lambda item: item[1], reverse=True)[:5])
+    avg_citations = total_citations / total_publications if total_publications > 0 else 0
 
-    if df is None or df.empty:
-        return jsonify({"message": f"'{university_name}' için veri henüz yüklenmedi veya yüklenemedi."}), 503
-
-    total_publications = len(df)
-    publications_by_year = df['Yayın Yılı'].value_counts().sort_index(ascending=False).to_dict()
-
-    # En çok yayın yapan yazarlar (top 5) - NaN değerleri atıldı
-    top_authors_series = df['Author Name and Surname'].dropna().str.split(', ').explode().value_counts()
-    top_authors = top_authors_series.head(5).to_dict()
-
-    # En popüler anahtar kelimeler (top 5) - NaN değerleri atıldı
-    top_keywords_series = df['Yazar Anahtar Kelimeleri'].dropna().str.split(', ').explode().value_counts()
-    top_keywords = top_keywords_series.head(5).to_dict()
-
-    average_citations = df['Citation Count'].mean() if not df['Citation Count'].empty else 0
-
-    summary = {
+    return {
         "university": university_name,
         "total_publications": total_publications,
         "publications_by_year": publications_by_year,
-        "top_5_authors": top_authors,
-        "top_5_keywords": top_keywords,
-        "average_citations": round(average_citations, 2)
+        "top_5_authors": top_5_authors,
+        "top_5_keywords": {}, # Eğer API'nizden keyword almıyorsanız boş bırakın
+        "average_citations": round(avg_citations, 2)
     }
+
+
+# BAŞLATMA VE VERİ YÜKLEME
+async def load_initial_data_for_all_universities():
+    print("Tüm üniversiteler için başlangıç verileri yükleniyor...")
+    for uni in SUPPORTED_UNIVERSITIES:
+        try:
+            data = await get_university_publications_from_clarivate(uni, CLARIVATE_API_KEY, CLARIVATE_SID)
+            UNIVERSITY_PUBLICATIONS[uni] = data
+            UNIVERSITY_SUMMARIES[uni] = generate_summary(data, uni)
+            print(f"{uni} verileri yüklendi. Yayın sayısı: {len(data)}")
+        except Exception as e:
+            print(f"Hata: {uni} verileri yüklenemedi: {e}")
+    print("Tüm üniversite verileri yükleme tamamlandı.")
+
+# Flask uygulamasının ilk isteği gelmeden önce veriyi yüklemesini sağlar
+# Bu satırın app.before_first_request dekoratörünün altında olduğundan emin olun
+@app.before_first_request
+def startup_load_data():
+    print("API başlangıcı: Veri yükleme tetiklendi.")
+    asyncio.run(load_initial_data_for_all_universities())
+
+# ------------ API ENDPOINT'LERİ ------------
+
+# /universities endpoint'i
+@app.route('/universities', methods=['GET'])
+def get_universities_list():
+    print("'/universities' endpoint'ine istek geldi.")
+    return jsonify({"universities": SUPPORTED_UNIVERSITIES})
+
+# /publications endpoint'i
+@app.route('/publications', methods=['GET'])
+def get_publications():
+    print("'/publications' endpoint'ine istek geldi.")
+    university = request.args.get('university')
+    year = request.args.get('year', type=int)
+    author = request.args.get('author')
+    limit = request.args.get('limit', default=50, type=int)
+
+    if not university:
+        return jsonify({"error": "University parameter is required."}), 400
+
+    if university not in UNIVERSITY_PUBLICATIONS:
+        return jsonify({"error": f"Veri henüz {university} için yüklenmedi veya bulunamadı. Lütfen daha sonra tekrar deneyin ya da geçerli bir üniversite seçin."}), 503
+
+    publications = UNIVERSITY_PUBLICATIONS.get(university, [])
+    filtered_publications = []
+
+    for pub in publications:
+        match = True
+        if year and pub.get("source", {}).get("publishYear") != str(year):
+            match = False
+        if author and author.lower() not in pub.get("Author Name and Surname", "").lower():
+            match = False
+        if match:
+            filtered_publications.append(pub)
+
+    filtered_publications.sort(key=lambda x: x.get("Citation Count", 0), reverse=True)
+
+    return jsonify(filtered_publications[:limit])
+
+# /publications/summary endpoint'i
+@app.route('/publications/summary', methods=['GET'])
+def get_publications_summary():
+    print("'/publications/summary' endpoint'ine istek geldi.")
+    university = request.args.get('university')
+
+    if not university:
+        return jsonify({"error": "University parameter is required."}), 400
+
+    if university not in UNIVERSITY_SUMMARIES:
+        return jsonify({"error": f"Özet veri henüz {university} için yüklenmedi veya bulunamadı. Lütfen daha sonra tekrar deneyin ya da geçerli bir üniversite seçin."}), 503
+
+    summary = UNIVERSITY_SUMMARIES.get(university)
     return jsonify(summary)
 
+# Ana sayfa (sağlık kontrolü için)
+@app.route('/')
+def home():
+    return "Üniversite Yayınları API çalışıyor!"
 
-async def load_initial_data_for_all_universities():
-    logging.info("📦 Tüm üniversiteler için veri yükleme başlatılıyor...")
-    global cached_data_by_university
-
-    tasks = []
-    for uni_name in SUPPORTED_UNIVERSITIES:
-        tasks.append(fetch_university_data(university_name=uni_name))
-
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    for i, result in enumerate(results):
-        uni_name = SUPPORTED_UNIVERSITIES[i]
-        if isinstance(result, Exception):
-            logging.error(f"❌ '{uni_name}' için ilk veri yüklenirken hata oluştu: {result}", exc_info=True)
-            cached_data_by_university[uni_name] = pd.DataFrame()
-        elif result is not None and not result.empty:
-            cached_data_by_university[uni_name] = result
-            logging.info(f"✅ '{uni_name}' verileri başarıyla yüklendi ve önbelleğe alındı. Yayın sayısı: {len(result)}")
-        else:
-            logging.warning(f"⚠️ '{uni_name}' için ilk veri yüklemesi boş bir DataFrame ile sonuçlandı.")
-            cached_data_by_university[uni_name] = pd.DataFrame()
-
-    logging.info("✅ Tüm üniversiteler için ilk veri yükleme tamamlandı.")
-
-
+# Uygulamayı başlat
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(load_initial_data_for_all_universities())
-
     port = int(os.environ.get("PORT", 5000))
-    logging.info(f"🚀 Flask uygulaması {port} portunda başlıyor...")
-    app.run(host="0.0.0.0", port=port)
+    app.run(host='0.0.0.0', port=port)

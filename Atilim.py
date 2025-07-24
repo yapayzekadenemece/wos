@@ -52,7 +52,7 @@ async def main(university_name: str):  # university_name artık zorunlu bir para
 
     current_query_params = {
         "db": "WOS",
-        "q": f'OG="{university_name}" AND FPY=1900-2030',
+        "q": f'OG="{Atilim University}" AND FPY=1900-2030',
         "limit": 50
     }
 
@@ -184,20 +184,8 @@ async def main(university_name: str):  # university_name artık zorunlu bir para
 
 
 if __name__ == "__main__":
-    # Yeni üniversite listeniz
-    SUPPORTED_UNIVERSITIES = [
-        "Reichman University",
-        "Sabanci University",
-        "TOBB Ekonomi ve Teknoloji University",
-        "University of Navarra",
-        "Universitat Internacional de Catalunya (UIC)",
-        "Ozyegin University",
-        "Kadir Has University",
-        "Izmir Ekonomi Universitesi",
-        "Jacobs University",
-        "Ihsan Dogramaci Bilkent University",
-        "Bahcesehir University"
-    ]
+        asyncio.run(main(university_name="Atilim University"))
+
 
     print("Veri çekme başlatılıyor...")
 
